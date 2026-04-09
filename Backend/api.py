@@ -1,13 +1,19 @@
-from fastapi import FastAPI
-import boto3
-from boto3.dynamodb.conditions import Key
 import os
+
+import boto3
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from adapters.dynamodb import DynamoUserRepository, DynamoOrderRepository
+from services.user_service import UserService
+from services.order_service import OrderService
+
+load_dotenv()
 
 app = FastAPI()
 
-
-#CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -16,38 +22,81 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configuración de la tabla 
+# --- Wiring: conectar adaptadores → servicios ---
 endpoint = os.getenv("DYNAMODB_URL", "http://localhost:8000")
-dynamodb = boto3.resource('dynamodb', endpoint_url=endpoint, region_name='us-east-1')
-table = dynamodb.Table('EcommerceTable')
+dynamodb = boto3.resource("dynamodb", endpoint_url=endpoint, region_name="us-east-1")
+table = dynamodb.Table("EcommerceTable")
+
+user_service = UserService(DynamoUserRepository(table))
+order_service = OrderService(DynamoOrderRepository(table))
+
+
+# --- Adaptador de entrada HTTP ---
+
+class LoginRequest(BaseModel):
+    correo: str
+    password: str
+
+
+@app.post("/login")
+async def login(body: LoginRequest):
+    user = user_service.login(body.correo, body.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+    return {
+        "PK": f"USER#{user.user_id}",
+        "Nombre": user.nombre,
+        "Correo": user.correo,
+        "Direcciones": user.direcciones,
+        "Metodos_de_pago": user.metodos_de_pago,
+    }
+
 
 @app.get("/user/{user_id}/profile")
 async def get_profile(user_id: str):
-    # PA1: Obtener perfil usando SK=PROFILE 
-    response = table.get_item(Key={'PK': f'USER#{user_id}', 'SK': 'PROFILE'})
-    return response.get('Item')
+    user = user_service.get_profile(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return {
+        "PK": f"USER#{user.user_id}",
+        "Nombre": user.nombre,
+        "Correo": user.correo,
+        "Direcciones": user.direcciones,
+        "Metodos_de_pago": user.metodos_de_pago,
+    }
+
 
 @app.get("/user/{user_id}/orders")
 async def get_recent_orders(user_id: str):
-    # PA2: Historial de pedidos usando begins_with 
-    response = table.query(
-        KeyConditionExpression=Key('PK').eq(f'USER#{user_id}') & Key('SK').begins_with('ORDER#'),
-        ScanIndexForward=False # Para orden descendente (más reciente primero) 
-    )
-    return response.get('Items')
+    orders = order_service.get_user_orders(user_id)
+    return [
+        {
+            "SK": f"ORDER#{o.order_id}",
+            "Fecha_creacion": o.fecha_creacion,
+            "Estado": o.estado,
+            "Total": o.total,
+        }
+        for o in orders
+    ]
+
 
 @app.get("/order/{order_id}")
 async def get_order_details(order_id: str):
-    # PA3 y PA4: Traer todo lo relacionado al pedido en una sola consulta 
-    response = table.query(
-        KeyConditionExpression=Key('PK').eq(f'ORD#{order_id}')
-    )
-    print(response)
-    print("\n")
-    items = response.get('Items')
-    print(items)
-    # Separamos la cabecera (INFO) de los productos (ITEM#) 
-    header = next((item for item in items if item['SK'] == 'INFO'), None)
-    products = [item for item in items if item['SK'].startswith('ITEM#')]
-    
-    return {"header": header, "items": products}
+    detail = order_service.get_order_detail(order_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Pedido no encontrado")
+    return {
+        "header": {
+            "Fecha": detail.fecha,
+            "Total": detail.total,
+            "Direccion_envio": detail.direccion_envio,
+        },
+        "items": [
+            {
+                "Producto": item.producto,
+                "Cantidad": item.cantidad,
+                "Precio_unitario": item.precio_unitario,
+            }
+            for item in detail.items
+        ],
+    }

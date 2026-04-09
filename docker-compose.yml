@@ -11,9 +11,19 @@ services:
     container_name: python-api
     ports:
       - "8050:8050"
+    env_file:
+      - ./Backend/.env
     environment:
       - AWS_ACCESS_KEY_ID=local
       - AWS_SECRET_ACCESS_KEY=local
       - DYNAMODB_URL=http://dynamodb-local:8000
     depends_on:
       - dynamodb-local
+
+  frontend:
+    build: ./Frontend/e-commerce
+    container_name: react-frontend
+    ports:
+      - "3000:80"        # el browser accede en localhost:3000, Nginx escucha en el 80
+    depends_on:
+      - api
