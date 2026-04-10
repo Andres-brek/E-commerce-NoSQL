@@ -3,11 +3,12 @@
 Este proyecto es una aplicación de e-commerce que utiliza **DynamoDB** como base de datos NoSQL, implementando una arquitectura hexagonal (Ports and Adapters).
 
 ## Información del Grupo
-- **Número de Grupo:** [Agregar número de grupo]
+- **Número de Grupo:** 5
 - **Integrantes:**
-  - [Nombre integrante 1]
-  - [Nombre integrante 2]
-  - [Nombre integrante 3]
+  - Andrés Idarraga
+  - Julio Curiel
+  - Jhon Galofre
+  - Jabes Borre
 
 ## Stack Tecnológico
 
@@ -36,7 +37,7 @@ Este proyecto es una aplicación de e-commerce que utiliza **DynamoDB** como bas
 ## Estructura del Proyecto
 
 ```text
-/home/jbyanx/Desktop/DynamoDB/E-commerce-NoSLQ/
+/E-commerce-NoSLQ/
 ├── Backend/                 # Código fuente del servidor
 │   ├── adapters/            # Adaptadores de salida (Implementación de DB)
 │   ├── domain/              # Lógica de negocio y Dataclasses
