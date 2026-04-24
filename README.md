@@ -16,10 +16,12 @@ Este proyecto es una aplicación de e-commerce que utiliza **DynamoDB** como bas
 - **Lenguaje:** Python 3.9+
 - **Framework:** FastAPI
 - **Base de Datos:** Amazon DynamoDB (Local)
+- **Caché:** Redis (patrón Cache-Aside)
 - **Librerías principales:**
   - `boto3`: SDK de AWS para interactuar con DynamoDB.
   - `pydantic`: Validación de datos y esquemas.
   - `python-dotenv`: Manejo de variables de entorno.
+   - `redis`: Cliente para cache distribuido.
   - `uvicorn`: Servidor ASGI para FastAPI.
 
 ### Frontend
@@ -31,6 +33,7 @@ Este proyecto es una aplicación de e-commerce que utiliza **DynamoDB** como bas
 ### Infraestructura
 - **Contenedores:** Docker y Docker Compose.
 - **Servidor Web:** Nginx (para servir el Frontend en producción).
+- **Servicio de caché:** Redis (puerto `6379`).
 
 ---
 
@@ -73,10 +76,11 @@ Para ejecutar todo el sistema (Base de datos local, API y Frontend), asegúrate 
    ```
 
 3. **Acceso a los servicios:**
-   - **Frontend:** [http://localhost:3000](http://localhost:3000)
-   - **Backend (API):** [http://localhost:8050](http://localhost:8050)
-   - **Documentación API (Swagger):** [http://localhost:8050/docs](http://localhost:8050/docs)
-   - **DynamoDB Local:** [http://localhost:8000](http://localhost:8000)
+    - **Frontend:** [http://localhost:3000](http://localhost:3000)
+    - **Backend (API):** [http://localhost:8050](http://localhost:8050)
+    - **Documentación API (Swagger):** [http://localhost:8050/docs](http://localhost:8050/docs)
+    - **DynamoDB Local:** [http://localhost:8000](http://localhost:8000)
+    - **Redis:** `localhost:6379`
 
 ---
 
@@ -103,3 +107,53 @@ Ubicación: `Backend/adapters/dynamodb.py`.
 Implementan los repositorios definidos en `Backend/ports/repositories.py`. Estos adaptadores se encargan de la comunicación directa con **DynamoDB**, realizando consultas (`query`), escaneos (`scan`) y recuperación de ítems (`get_item`).
 
 ---
+
+## Caché Aside en Backend
+
+El backend implementa estrategia **Cache-Aside** en los repositorios de lectura:
+
+- `GET /user/{user_id}/profile`
+- `GET /user/{user_id}/orders`
+- `GET /order/{order_id}`
+
+Flujo aplicado:
+
+1. El repositorio cacheado consulta primero Redis.
+2. Si existe dato en caché (**hit**), responde desde Redis.
+3. Si no existe (**miss**), consulta DynamoDB y luego guarda el resultado en Redis con TTL.
+
+Configuración en `Backend/.env`:
+
+```env
+REDIS_URL=redis://redis:6379/0
+CACHE_TTL_SECONDS=120
+```
+
+## Cómo observar el comportamiento del caché
+
+1. Consumir dos veces seguidas el mismo endpoint de lectura (la segunda llamada debería ser hit).
+2. Consultar métricas de caché:
+
+```bash
+curl http://localhost:8050/cache/metrics
+```
+
+3. Ver claves activas y tiempo de vida restante:
+
+```bash
+curl "http://localhost:8050/cache/keys?limit=20"
+```
+
+4. Inspección directa en Redis:
+
+```bash
+docker exec -it redis redis-cli
+```
+
+Luego, dentro de `redis-cli`:
+
+```text
+KEYS cache:data:*
+HGETALL cache:metrics
+TTL cache:data:user:profile:001
+```
