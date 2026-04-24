@@ -6,6 +6,12 @@ services:
       - "8000:8000"
     command: "-jar DynamoDBLocal.jar -sharedDb"
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
   api:
     build: ./Backend
     container_name: python-api
@@ -17,8 +23,11 @@ services:
       - AWS_ACCESS_KEY_ID=local
       - AWS_SECRET_ACCESS_KEY=local
       - DYNAMODB_URL=http://dynamodb-local:8000
+      - REDIS_URL=redis://redis:6379/0
+      - CACHE_TTL_SECONDS=120
     depends_on:
       - dynamodb-local
+      - redis
 
   frontend:
     build: ./Frontend/e-commerce
