@@ -5,7 +5,14 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from redis import Redis
 
+from adapters.cache import (
+    CacheMetrics,
+    CachedOrderRepository,
+    CachedUserRepository,
+    RedisJsonCache,
+)
 from adapters.dynamodb import DynamoUserRepository, DynamoOrderRepository
 from services.user_service import UserService
 from services.order_service import OrderService
@@ -27,8 +34,21 @@ endpoint = os.getenv("DYNAMODB_URL", "http://localhost:8000")
 dynamodb = boto3.resource("dynamodb", endpoint_url=endpoint, region_name="us-east-1")
 table = dynamodb.Table("EcommerceTable")
 
-user_service = UserService(DynamoUserRepository(table))
-order_service = OrderService(DynamoOrderRepository(table))
+# Cliente Redis usado por el adaptador de caché.
+redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+redis_client = Redis.from_url(redis_url, decode_responses=True)
+
+# TTL configurable para controlar cuánto dura cada item en caché.
+cache_ttl_seconds = int(os.getenv("CACHE_TTL_SECONDS", "60"))
+cache = RedisJsonCache(redis_client, ttl_seconds=cache_ttl_seconds)
+cache_metrics = CacheMetrics(redis_client)
+
+# Repositorios base (DynamoDB) y decoradores cache-aside.
+user_repository = CachedUserRepository(DynamoUserRepository(table), cache, cache_metrics)
+order_repository = CachedOrderRepository(DynamoOrderRepository(table), cache, cache_metrics)
+
+user_service = UserService(user_repository)
+order_service = OrderService(order_repository)
 
 
 # --- Adaptador de entrada HTTP ---
@@ -100,3 +120,15 @@ async def get_order_details(order_id: str):
             for item in detail.items
         ],
     }
+
+
+@app.get("/cache/metrics")
+async def get_cache_metrics():
+    """Endpoint de observabilidad para monitorear hits/misses de caché."""
+    return cache_metrics.snapshot()
+
+
+@app.get("/cache/keys")
+async def get_cache_keys(limit: int = 20):
+    """Lista claves activas de caché y su TTL restante."""
+    return cache.list_entries(limit=limit)
