@@ -1,8 +1,10 @@
-# E-commerce NoSQL - Proyecto DynamoDB
+# E-commerce NoSQL – Proyecto con DynamoDB, LocalStack y Arquitectura Hexagonal
 
-Este proyecto es una aplicación de e-commerce que utiliza **DynamoDB** como base de datos NoSQL, implementando una arquitectura hexagonal (Ports and Adapters).
+Este proyecto es una plataforma de e-commerce que utiliza **Amazon DynamoDB** como base de datos NoSQL, infraestructura definida por código (IaC) con AWS CDK y despliegue local en LocalStack, aplicando arquitectura hexagonal (Ports & Adapters).
 
-## Información del Grupo
+---
+
+## 🧑‍💻 Información del Grupo
 - **Número de Grupo:** 5
 - **Integrantes:**
   - Andrés Idarraga
@@ -10,207 +12,198 @@ Este proyecto es una aplicación de e-commerce que utiliza **DynamoDB** como bas
   - Jhon Galofre
   - Jabes Borre
 
-## Stack Tecnológico
+---
+
+## 🚀 Stack Tecnológico
 
 ### Backend
 - **Lenguaje:** Python 3.9+
 - **Framework:** FastAPI
-- **Base de Datos:** Amazon DynamoDB (LocalStack)
-- **Caché:** Redis (patrón Cache-Aside)
+- **Base de Datos:** Amazon DynamoDB (simulada con LocalStack)
+- **Caché:** Redis (estrategia Cache-Aside)
+- **Infraestructura:** AWS CDK (Python) + LocalStack
 - **Librerías principales:**
-  - `boto3`: SDK de AWS para interactuar con DynamoDB.
-  - `pydantic`: Validación de datos y esquemas.
-  - `python-dotenv`: Manejo de variables de entorno.
-   - `redis`: Cliente para cache distribuido.
-  - `uvicorn`: Servidor ASGI para FastAPI.
+  - `boto3` (AWS SDK Python)
+  - `pydantic` (modelos/validación de datos)
+  - `redis` (cliente Redis Python)
+  - `python-dotenv` (manejo de variables de entorno)
+  - `uvicorn` (servidor FastAPI)
 
 ### Frontend
 - **Framework:** React
-- **Librerías principales:**
-  - `react-router-dom`: Enrutamiento.
-  - `react-scripts`: Scripts de construcción y desarrollo.
+- **Librerías:**
+  - `react-router-dom` (ruteo)
+  - `react-scripts`
 
-### Infraestructura
-- **Contenedores:** Docker y Docker Compose.
-- **Servidor Web:** Nginx (para servir el Frontend en producción).
-- **Servicio de caché:** Redis (puerto `6379`).
-- **AWS Local:** LocalStack (puerto `4566`) + CDK Local.
+### Infraestructura & DevOps
+- **Contenedores:** Docker y Docker Compose
+- **Servidor Web:** Nginx (para producción frontend)
+- **Servicio de caché:** Redis (`6379`)
+- **AWS Local:** LocalStack (puerto `4566`) + CDK Local
 
 ---
 
-## Estructura del Proyecto
+## 📁 Estructura del Proyecto
 
 ```text
-/E-commerce-NoSLQ/
-├── Backend/                 # Código fuente del servidor
-│   ├── adapters/            # Adaptadores de salida (Implementación de DB)
-│   ├── domain/              # Lógica de negocio y Dataclasses
-│   ├── ports/               # Interfaces (Puertos) de los repositorios
-│   ├── services/            # Servicios de aplicación
-│   ├── api.py               # Adaptadores de entrada (Endpoints FastAPI)
-│   └── requirements.txt     # Dependencias de Python
-├── Frontend/                # Código fuente del cliente (React)
+/E-commerce-NoSQL/
+├── Backend/                  # Backend (API, Dominio, Adapters, Puertos)
+│   ├── adapters/             # Adaptadores de persistencia (DynamoDB)
+│   ├── domain/               # Dataclasses de negocio
+│   ├── ports/                # Interfaces (puertos hexagonales)
+│   ├── services/             # Servicios core
+│   ├── api.py                # Endpoints (FastAPI)
+│   ├── init_db.py            # Inicializador/semilla de datos DynamoDB
+│   └── requirements.txt      # Dependencias Python
+├── Frontend/
 │   └── e-commerce/
 │       ├── src/
-│       │   ├── components/  # Componentes reutilizables
-│       │   └── pages/       # Páginas de la aplicación
+│       │   ├── components/   # Componentes reutilizables
+│       │   └── pages/        # Páginas de la app
 │       └── Dockerfile
 ├── Infra/
-│   └── cdk-local/           # App CDK (Python) para desplegar en LocalStack
-└── docker-compose.yml       # Orquestación de servicios (API, Frontend, LocalStack, Redis)
+│   └── cdk-local/            # AWS CDK app para infraestructura local
+│       ├── app.py, stacks/
+│       └── package.json, requirements.txt
+├── docker-compose.yml        # Orquestación completa (API, Frontend, Redis, LocalStack, CDK)
+└── README.md
 ```
 
 ---
 
-## Instrucciones para Levantar el Proyecto
+## ✨ Principales Características y Funcionalidades
 
-Para ejecutar todo el sistema (Base de datos local, API y Frontend), asegúrate de tener instalado **Docker** y **Docker Compose**.
+- **Arquitectura hexagonal**: separación de lógica de negocio, adaptadores y puertos (facilita testing y evolución).
+- **DynamoDB gestionado localmente:** via LocalStack y AWS CDK (infraestructura reproducible, rápido arranque/destrucción).
+- **Caché Aside sobre Redis:** para endpoints críticos reduce latencia en lecturas repetidas.
+- **Seeds de datos automáticos**: init_db.py crea la tabla y carga datos idempotentemente en DynamoDB (útil para pruebas/no requiere scripts manuales).
+- **Infraestructura como Código (IaC) para DynamoDB:** Desde `/Infra/cdk-local`. Usa scripts npm y AWS CDK local para crear/eliminar recursos.
+- **Frontend desacoplado:** UI moderna en React, consumiendo API REST documentada en Swagger.
+- **Flujo de desarrollo 100% local:** No requiere AWS real (LocalStack + CDK + Redis + Docker Compose).
+- **API auto-documentada:** Swagger/OpenAPI en `/docs` (FastAPI).
+- **Contenedores robustos:** Cada servicio con su Dockerfile; integración con Docker Compose.
+- **Orquestación completa:** Incluye Redis, Backend, Frontend, LocalStack y CDK listos para desarrollo colaborativo.
 
-1. **Clonar el repositorio:**
+---
+
+## ⚡ Instalación y Ejecución Rápida
+
+**Requisitos:** [Docker](https://docs.docker.com/get-docker/) y [Docker Compose](https://docs.docker.com/compose/install/)
+
+```bash
+# 1. Clona el repositorio
+ git clone https://github.com/Andres-brek/E-commerce-NoSQL.git
+ cd E-commerce-NoSQL
+
+# 2. Levanta todos los servicios
+ docker-compose up --build
+```
+
+**Servicios:**
+- **Frontend:** http://localhost:3000
+- **Backend (API):** http://localhost:8050
+- **Swagger Docs:** http://localhost:8050/docs
+- **LocalStack AWS Endpoint:** http://localhost:4566
+- **Redis:** localhost:6379
+
+---
+
+## 🏗️ Despliegue de DynamoDB y recursos con CDK/LocalStack
+
+**Gestiona la infraestructura DynamoDB usando AWS CDK y LocalStack para pruebas locales.**
+
+1. **Inicia LocalStack & cdk-local:**
    ```bash
-   git clone [URL-del-repositorio]
-   cd E-commerce-NoSLQ
+   docker-compose up -d --build
+   ```
+2. **Instala dependencias CDK dentro del contenedor cdk-local:**
+   ```bash
+   docker compose exec cdk-local sh -lc "apt-get update && apt-get install -y python3 python3-pip && npm install && pip3 install -r requirements.txt"
+   ```
+3. **Bootstrap y despliega stack DynamoDB local:**
+   ```bash
+   docker compose exec cdk-local npm run bootstrap:local
+   docker compose exec cdk-local npm run deploy:local
+   ```
+4. **Verifica backend con seed de datos:**
+   ```bash
+   curl -s http://localhost:8050/user/001/profile
    ```
 
-2. **Levantar los servicios:**
-   Desde la raíz del proyecto, ejecuta:
-   ```bash
-   docker-compose up --build
-   ```
-
-3. **Acceso a los servicios:**
-     - **Frontend:** [http://localhost:3000](http://localhost:3000)
-     - **Backend (API):** [http://localhost:8050](http://localhost:8050)
-     - **Documentación API (Swagger):** [http://localhost:8050/docs](http://localhost:8050/docs)
-     - **LocalStack endpoint AWS:** [http://localhost:4566](http://localhost:4566)
-     - **Redis:** `localhost:6379`
-
-## CDK Local + LocalStack (Serverless en local)
-
-1. Levanta el entorno base:
-
-```bash
-docker compose up -d --build
-```
-
-2. Instala dependencias del proyecto CDK dentro del contenedor `cdk-local`:
-
-```bash
-docker compose exec cdk-local sh -lc "apt-get update && apt-get install -y python3 python3-pip && npm install && pip3 install -r requirements.txt"
-```
-
-3. Bootstrap y despliegue local del stack:
-
-```bash
-docker compose exec cdk-local npm run bootstrap:local
-docker compose exec cdk-local npm run deploy:local
-```
-
-4. Verifica que el backend sigue operativo contra LocalStack:
-
-```bash
-curl -s http://localhost:8050/user/001/profile
-```
-
-Notas:
-- El backend usa `DYNAMODB_URL=http://localstack:4566`.
-- `Backend/init_db.py` mantiene la semilla de datos para pruebas rápidas y ahora es idempotente.
+**Notas:**
+- El backend debe tener `DYNAMODB_URL=http://localstack:4566`
+- El script `Backend/init_db.py` carga datos iniciales cada vez que inicia (idempotente)
 
 ---
 
-## Abstracción de Tablas con Dataclasses
+## ⚙️ Estrategia Cache-Aside en Backend
 
-Se utilizan `dataclasses` de Python para definir las entidades de dominio, asegurando tipos fuertes y una representación clara de los datos.
+El backend cachea resultados de endpoints intensivos en lectura usando Redis. Flujos clave:
 
-- **User:** Representa el perfil de un usuario.
-- **OrderItem:** Detalle de un producto en una orden (producto, cantidad, precio).
-- **OrderSummary:** Resumen de una orden para listados (ID, fecha, estado, total).
-- **OrderDetail:** Información completa de una orden, incluyendo su lista de items.
+1. **Consulta perfil de usuario:**
+    - `GET /user/{user_id}/profile`
+2. **Órdenes del usuario:**
+    - `GET /user/{user_id}/orders`
+3. **Detalle de orden:**
+    - `GET /order/{order_id}`
 
-Ubicación: `Backend/domain/`
+**Flujo:**
+- 1º revisa Redis; si HIT responde desde caché. Si MISS, consulta a DynamoDB y almacena en Redis con TTL.
 
----
-
-## Abstracción de Adaptadores
-
-### Adaptadores de Entrada (Entry Adapters)
-Implementados en `Backend/api.py` mediante **FastAPI**. Estos adaptadores reciben las peticiones HTTP, validan los datos de entrada usando Pydantic y delegan la ejecución a los servicios de dominio.
-
-### Adaptadores de Salida (Output Adapters / Persistencia)
-Ubicación: `Backend/adapters/dynamodb.py`.
-Implementan los repositorios definidos en `Backend/ports/repositories.py`. Estos adaptadores se encargan de la comunicación directa con **DynamoDB**, realizando consultas (`query`), escaneos (`scan`) y recuperación de ítems (`get_item`).
-
----
-
-## Caché Aside en Backend
-
-El backend implementa estrategia **Cache-Aside** en los repositorios de lectura:
-
-- `GET /user/{user_id}/profile`
-- `GET /user/{user_id}/orders`
-- `GET /order/{order_id}`
-
-Flujo aplicado:
-
-1. El repositorio cacheado consulta primero Redis.
-2. Si existe dato en caché (**hit**), responde desde Redis.
-3. Si no existe (**miss**), consulta DynamoDB y luego guarda el resultado en Redis con TTL.
-
-Configuración en `Backend/.env`:
-
-```env
+Variables .env:
+```ini
 REDIS_URL=redis://redis:6379/0
 CACHE_TTL_SECONDS=120
 ```
 
-## Instructivo de pruebas: demostrar Cache-Aside
+---
 
-Este flujo permite evidenciar que:
-1. La primera consulta es **miss** (lee DynamoDB y guarda en Redis).
-2. La segunda consulta es **hit** (responde desde Redis).
-3. El payload de ambas respuestas es el mismo.
-
-### 1) Reiniciar estado de caché y validar métricas en cero
+## 🧪 Test rápido de cache-aside (ejemplo)
 
 ```bash
+# Limpiar el caché (opcional, para métricas)
 docker exec redis redis-cli FLUSHDB
-curl -s http://localhost:8050/cache/metrics
-```
 
-Resultado esperado: `{}`.
-
-### 2) Probar caché en perfil de usuario
-
-```bash
+# Primera consulta (MISS, tarda más)
 curl -s -o /tmp/profile1.json -w "t1=%{time_total}\n" http://localhost:8050/user/001/profile
+
+# Segunda consulta (HIT, mucho más rápido)
 curl -s -o /tmp/profile2.json -w "t2=%{time_total}\n" http://localhost:8050/user/001/profile
+
+# Métricas de caché:
 curl -s http://localhost:8050/cache/metrics
-curl -s "http://localhost:8050/cache/keys?limit=20"
+
+# Claves activas
+docker exec redis redis-cli KEYS 'cache:data:*'
+
+# Los JSON deberían tener el mismo hash:
 sha256sum /tmp/profile1.json /tmp/profile2.json
 ```
+**Esperado:** Métrica "miss" en primera, "hit" en segunda, mismo contenido en ambas respuestas, segundo request más rápido.
 
-Resultado esperado:
-- Métricas con `profile_misses: 1` y `profile_hits: 1`.
-- Clave `cache:data:user:profile:001` con TTL positivo.
-- `t2 < t1` (normalmente notablemente menor).
-- Hash idéntico entre `profile1.json` y `profile2.json`.
+---
 
-### 3) Probar caché en órdenes y detalle de orden
+## 🏛️ Arquitectura Hexagonal: Resumen
 
-```bash
-curl -s -o /tmp/orders1.json -w "t1=%{time_total}\n" http://localhost:8050/user/001/orders
-curl -s -o /tmp/orders2.json -w "t2=%{time_total}\n" http://localhost:8050/user/001/orders
-curl -s -o /tmp/orderd1.json -w "t1=%{time_total}\n" http://localhost:8050/order/030426
-curl -s -o /tmp/orderd2.json -w "t2=%{time_total}\n" http://localhost:8050/order/030426
-curl -s http://localhost:8050/cache/metrics
-curl -s "http://localhost:8050/cache/keys?limit=20"
-sha256sum /tmp/orders1.json /tmp/orders2.json
-sha256sum /tmp/orderd1.json /tmp/orderd2.json
-```
+**Dominios y sus adaptadores:**
+- **Entidades:** User, OrderItem, OrderSummary, OrderDetail (`Backend/domain/`)
+- **Adaptadores de entrada:** FastAPI en `Backend/api.py`, validación con Pydantic
+- **Adaptadores de salida:** `Backend/adapters/dynamodb.py`, implementando los puertos definidos en `Backend/ports/`
 
-Resultado esperado:
-- Incrementos en `orders_misses/orders_hits` y `order_detail_misses/order_detail_hits`.
-- Claves:
-  - `cache:data:user:orders:001`
-  - `cache:data:order:detail:030426`
-- Segunda llamada más rápida y mismo contenido (hash igual).
+---
+
+## 📜 Documentación y Endpoints
+
+- API documentada en Swagger en `/docs` (FastAPI)
+- CDK Infraestructura local en `/Infra/cdk-local/` y scripts npm (`bootstrap:local`, `deploy:local`)
+
+---
+
+## 📝 Notas finales y buenas prácticas
+
+- **Infraestructura reproducible:** Terraform/Cognito no requeridos, sólo Docker y Docker Compose
+- **CDK + LocalStack:** Completamente automáticos
+- **Seeds idempotentes:** No hay duplicados, siempre tienes entorno funcional al arrancar
+- **Frontend y backend desacoplados:** Puedes conectar UI o Postman al REST API
+- **Testing local fácil:** Simple con Docker Compose, sin dependencias externas
+- **Actualizado a mayo 2026**
