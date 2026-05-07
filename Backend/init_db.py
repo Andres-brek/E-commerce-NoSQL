@@ -26,6 +26,7 @@ def create_table():
         ],
         ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
     )
+    table.wait_until_exists()
     return table
 
 def seed_data():
@@ -96,7 +97,8 @@ def seed_data():
 if __name__ == "__main__":
     try:
         create_table()
-        seed_data()
-        print("Tabla creada y datos cargados.")
+        print("Tabla creada.")
     except dynamodb.meta.client.exceptions.ResourceInUseException:
         print("Tabla ya existe.")
+    seed_data()
+    print("Datos cargados.")

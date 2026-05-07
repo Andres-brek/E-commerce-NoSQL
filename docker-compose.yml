@@ -1,10 +1,21 @@
 services:
-  dynamodb-local:
-    image: amazon/dynamodb-local
-    container_name: dynamodb-local
+  localstack:
+    image: localstack/localstack:3.8
+    container_name: localstack
     ports:
-      - "8000:8000"
-    command: "-jar DynamoDBLocal.jar -sharedDb"
+      - "4566:4566"
+    environment:
+      - SERVICES=dynamodb,cloudformation,iam,lambda,logs,s3,sts,ssm
+      - DEBUG=0
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
 
   redis:
     image: redis:7-alpine
@@ -22,12 +33,35 @@ services:
     environment:
       - AWS_ACCESS_KEY_ID=local
       - AWS_SECRET_ACCESS_KEY=local
-      - DYNAMODB_URL=http://dynamodb-local:8000
+      - AWS_DEFAULT_REGION=us-east-1
+      - DYNAMODB_URL=http://localstack:4566
       - REDIS_URL=redis://redis:6379/0
       - CACHE_TTL_SECONDS=120
     depends_on:
-      - dynamodb-local
-      - redis
+      localstack:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  cdk-local:
+    image: node:22-bullseye
+    container_name: cdk-local
+    working_dir: /workspace/Infra/cdk-local
+    volumes:
+      - ./:/workspace
+      - ./Infra/cdk-local/.aws/credentials:/root/.aws/credentials:ro
+      - ./Infra/cdk-local/.aws/config:/root/.aws/config:ro
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - CDK_DEFAULT_ACCOUNT=000000000000
+      - CDK_DEFAULT_REGION=us-east-1
+      - LOCALSTACK_HOST=localstack
+    depends_on:
+      localstack:
+        condition: service_healthy
+    command: sh -c "tail -f /dev/null"
 
   frontend:
     build: ./Frontend/e-commerce
@@ -36,3 +70,6 @@ services:
       - "3000:80"        # el browser accede en localhost:3000, Nginx escucha en el 80
     depends_on:
       - api
+
+volumes:
+  localstack-data:

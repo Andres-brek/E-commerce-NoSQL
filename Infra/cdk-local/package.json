@@ -1,0 +1,15 @@
+{
+  "name": "ecommerce-cdk-local",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "bootstrap:local": "cdklocal bootstrap aws://000000000000/us-east-1",
+    "synth:local": "cdklocal synth",
+    "deploy:local": "cdklocal deploy --require-approval never",
+    "destroy:local": "cdklocal destroy --force"
+  },
+  "devDependencies": {
+    "aws-cdk": "^2.1021.0",
+    "aws-cdk-local": "^3.0.1"
+  }
+}

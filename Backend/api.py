@@ -50,9 +50,7 @@ order_repository = CachedOrderRepository(DynamoOrderRepository(table), cache, ca
 user_service = UserService(user_repository)
 order_service = OrderService(order_repository)
 
-
 # --- Adaptador de entrada HTTP ---
-
 class LoginRequest(BaseModel):
     correo: str
     password: str
