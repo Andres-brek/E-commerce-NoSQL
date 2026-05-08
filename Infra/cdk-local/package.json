@@ -5,8 +5,8 @@
   "scripts": {
     "bootstrap:local": "cdklocal bootstrap aws://000000000000/us-east-1",
     "synth:local": "cdklocal synth",
-    "deploy:local": "cdklocal deploy --require-approval never",
-    "destroy:local": "cdklocal destroy --force"
+    "deploy:local": "cdklocal deploy PersistenceStack ApiStack --require-approval never",
+    "destroy:local": "cdklocal destroy PersistenceStack ApiStack --force"
   },
   "devDependencies": {
     "aws-cdk": "^2.1021.0",

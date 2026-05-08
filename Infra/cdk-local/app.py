@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
 import aws_cdk as cdk
 
-from stacks.ecommerce_local_stack import EcommerceLocalStack
-
+from stacks.persistence_stack import PersistenceStack
+from stacks.api_stack import ApiStack
 
 app = cdk.App()
-EcommerceLocalStack(
+
+env = cdk.Environment(account="000000000000", region="us-east-1")
+synth = cdk.LegacyStackSynthesizer()
+
+persistence = PersistenceStack(app, "PersistenceStack", env=env, synthesizer=synth)
+
+ApiStack(
     app,
-    "EcommerceLocalStack",
-    env=cdk.Environment(account="000000000000", region="us-east-1"),
-    synthesizer=cdk.LegacyStackSynthesizer(),
+    "ApiStack",
+    ecommerce_table=persistence.ecommerce_table,
+    env=env,
+    synthesizer=synth,
 )
+
 app.synth()

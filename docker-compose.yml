@@ -5,12 +5,14 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=dynamodb,cloudformation,iam,lambda,logs,s3,sts,ssm
+      - SERVICES=dynamodb,cloudformation,iam,lambda,logs,s3,sts,ssm,apigateway,execute-api
       - DEBUG=0
       - AWS_DEFAULT_REGION=us-east-1
+      - LAMBDA_EXECUTOR=local
     volumes:
       - localstack-data:/var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./Backend:/workspace/Backend:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 10s
@@ -61,7 +63,16 @@ services:
     depends_on:
       localstack:
         condition: service_healthy
-    command: sh -c "tail -f /dev/null"
+    command: >
+      sh -c "
+        apt-get update -qq && apt-get install -y -qq python3 python3-pip &&
+        pip3 install -r requirements.txt -q &&
+        npm install -q &&
+        npm run bootstrap:local &&
+        npm run deploy:local &&
+        echo 'CDK deploy complete' &&
+        tail -f /dev/null
+      "
 
   frontend:
     build: ./Frontend/e-commerce
