@@ -8,11 +8,17 @@ services:
       - SERVICES=dynamodb,cloudformation,iam,lambda,logs,s3,sts,ssm,apigateway,execute-api
       - DEBUG=0
       - AWS_DEFAULT_REGION=us-east-1
-      - LAMBDA_EXECUTOR=local
     volumes:
       - localstack-data:/var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
       - ./Backend:/workspace/Backend:ro
+    networks:
+      default:
+        aliases:
+          - localhost.localstack.cloud
+          - s3.localhost.localstack.cloud
+          - cdk-hnb659fds-assets-000000000000-us-east-1.localstack
+          - cdk-hnb659fds-assets-000000000000-us-east-1.s3.localhost.localstack.cloud
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 10s
@@ -25,51 +31,54 @@ services:
     ports:
       - "6379:6379"
 
-  api:
-    build: ./Backend
-    container_name: python-api
-    ports:
-      - "8050:8050"
-    env_file:
-      - ./Backend/.env
+
+  cdk-local:
+    image: node:22-bookworm
+    container_name: cdk-local
+    working_dir: /workspace/Infra/cdk-local
+    volumes:
+      - ./:/workspace
+      - api-url:/shared
     environment:
-      - AWS_ACCESS_KEY_ID=local
-      - AWS_SECRET_ACCESS_KEY=local
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
       - AWS_DEFAULT_REGION=us-east-1
-      - DYNAMODB_URL=http://localstack:4566
+      - AWS_ENDPOINT_URL=http://localhost.localstack.cloud:4566
+      - AWS_ENDPOINT_URL_S3=http://s3.localhost.localstack.cloud:4566
+      - CDK_DEFAULT_ACCOUNT=000000000000
+      - CDK_DEFAULT_REGION=us-east-1
+      - LOCALSTACK_HOSTNAME=localhost.localstack.cloud
+      - EDGE_PORT=4566
       - REDIS_URL=redis://redis:6379/0
-      - CACHE_TTL_SECONDS=120
     depends_on:
       localstack:
         condition: service_healthy
       redis:
         condition: service_started
-
-  cdk-local:
-    image: node:22-bullseye
-    container_name: cdk-local
-    working_dir: /workspace/Infra/cdk-local
-    volumes:
-      - ./:/workspace
-      - ./Infra/cdk-local/.aws/credentials:/root/.aws/credentials:ro
-      - ./Infra/cdk-local/.aws/config:/root/.aws/config:ro
-    environment:
-      - AWS_ACCESS_KEY_ID=test
-      - AWS_SECRET_ACCESS_KEY=test
-      - AWS_DEFAULT_REGION=us-east-1
-      - CDK_DEFAULT_ACCOUNT=000000000000
-      - CDK_DEFAULT_REGION=us-east-1
-      - LOCALSTACK_HOST=localstack
-    depends_on:
-      localstack:
-        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/cdk-deployed"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 30s
     command: >
       sh -c "
-        apt-get update -qq && apt-get install -y -qq python3 python3-pip &&
-        pip3 install -r requirements.txt -q &&
+        rm -f /tmp/cdk-deployed &&
+        apt-get update -qq && apt-get install -y -qq python3 python3-pip python3-venv &&
+        python3 -m venv /opt/venv &&
+        /opt/venv/bin/pip install --upgrade pip -q &&
+        /opt/venv/bin/pip install -r requirements.txt boto3 python-dotenv -q &&
+        export PATH=/opt/venv/bin:$$PATH &&
         npm install -q &&
+        /opt/venv/bin/pip install --target /workspace/Backend redis -q &&
         npm run bootstrap:local &&
         npm run deploy:local &&
+        DYNAMODB_URL=http://localstack:4566 PASSWORD_PEPPER=empanada69 /opt/venv/bin/python /workspace/Backend/init_db.py &&
+        echo 'Seed data loaded' &&
+        API_ID=$$(/opt/venv/bin/python -c \"import boto3; c=boto3.client('apigateway', endpoint_url='http://localstack:4566', region_name='us-east-1'); print(next(a for a in c.get_rest_apis()['items'] if a['name']=='ecommerce-api')['id'])\") &&
+        echo \"https://$${API_ID}.execute-api.localhost.localstack.cloud:4566/prod\" > /shared/api_url.txt &&
+        cat /shared/api_url.txt &&
+        touch /tmp/cdk-deployed &&
         echo 'CDK deploy complete' &&
         tail -f /dev/null
       "
@@ -78,9 +87,19 @@ services:
     build: ./Frontend/e-commerce
     container_name: react-frontend
     ports:
-      - "3000:80"        # el browser accede en localhost:3000, Nginx escucha en el 80
+      - "3000:80"
+    volumes:
+      - api-url:/shared:ro
     depends_on:
-      - api
+      cdk-local:
+        condition: service_healthy
+    command: >
+      sh -c "
+        API_URL=$$(cat /shared/api_url.txt) &&
+        sed -i \"s|__API_URL__|$$API_URL|g\" /usr/share/nginx/html/static/js/*.js &&
+        nginx -g 'daemon off;'
+      "
 
 volumes:
   localstack-data:
+  api-url:

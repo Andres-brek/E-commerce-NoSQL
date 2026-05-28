@@ -4,9 +4,16 @@ from typing import Any, Dict, List, Optional
 
 from redis import Redis
 
-from domain.order import OrderDetail, OrderItem, OrderSummary
+from domain.order import (
+    CheckoutItem,
+    CheckoutResult,
+    OrderDetail,
+    OrderItem,
+    OrderSummary,
+)
+from domain.product import Product
 from domain.user import User
-from ports.repositories import OrderRepository, UserRepository
+from ports.repositories import OrderRepository, ProductRepository, UserRepository
 
 
 class RedisJsonCache:
@@ -34,6 +41,16 @@ class RedisJsonCache:
         redis_key = self._redis_key(key)
         serialized = json.dumps(value)
         self._client.set(redis_key, serialized, ex=self._ttl_seconds)
+
+    def delete(self, key: str) -> None:
+        """Elimina una entrada concreta de la caché."""
+        self._client.delete(self._redis_key(key))
+
+    def delete_pattern(self, pattern: str) -> None:
+        """Elimina todas las claves que coinciden con un patrón estilo glob (e.g. 'products:*')."""
+        full_pattern = f"{self._namespace}:{pattern}"
+        for key in self._client.scan_iter(match=full_pattern, count=100):
+            self._client.delete(key)
 
     def list_entries(self, limit: int = 20) -> List[Dict[str, Any]]:
         """Lista claves de caché con su TTL para observabilidad."""
@@ -95,17 +112,30 @@ class CachedUserRepository(UserRepository):
         self._metrics = metrics
 
     def find_credentials_by_email(self, correo: str) -> Optional[dict]:
-        # Las credenciales se consultan directo a DB por seguridad.
-        return self._source.find_credentials_by_email(correo)
+        cache_key = f"user:credentials:{correo.strip().lower()}"
+        cached_value = self._cache.get(cache_key)
+        if cached_value is not None:
+            self._metrics.record_hit("credentials")
+            print(f"[CACHE HIT] login credentials correo={correo}", flush=True)
+            return cached_value
+
+        self._metrics.record_miss("credentials")
+        print(f"[CACHE MISS] login credentials correo={correo} -> DynamoDB", flush=True)
+        credentials = self._source.find_credentials_by_email(correo)
+        if credentials is not None:
+            self._cache.set(cache_key, credentials)
+        return credentials
 
     def find_profile(self, user_id: str) -> Optional[User]:
         cache_key = f"user:profile:{user_id}"
         cached_value = self._cache.get(cache_key)
         if cached_value is not None:
             self._metrics.record_hit("profile")
+            print(f"[CACHE HIT] user profile user_id={user_id}", flush=True)
             return User(**cached_value)
 
         self._metrics.record_miss("profile")
+        print(f"[CACHE MISS] user profile user_id={user_id} -> DynamoDB", flush=True)
         user = self._source.find_profile(user_id)
         if user is not None:
             self._cache.set(cache_key, asdict(user))
@@ -147,6 +177,8 @@ class CachedOrderRepository(OrderRepository):
                 total=cached_value["total"],
                 direccion_envio=cached_value["direccion_envio"],
                 items=[OrderItem(**item) for item in cached_value["items"]],
+                fecha_entrega=cached_value.get("fecha_entrega"),
+                estado=cached_value.get("estado"),
             )
 
         self._metrics.record_miss("order_detail")
@@ -154,3 +186,97 @@ class CachedOrderRepository(OrderRepository):
         if detail is not None:
             self._cache.set(cache_key, asdict(detail))
         return detail
+
+    def create_order(
+        self,
+        user_id: str,
+        items: List[CheckoutItem],
+        direccion_envio: str,
+    ) -> CheckoutResult:
+        result = self._source.create_order(user_id, items, direccion_envio)
+        # Invalidar listado de pedidos del usuario y todo lo de productos
+        # (porque cambió el stock — más simple que invalidar por id).
+        self._cache.delete(f"user:orders:{user_id}")
+        self._cache.delete_pattern("products:*")
+        return result
+
+
+class CachedProductRepository(ProductRepository):
+    """Repositorio decorador de productos con estrategia cache-aside."""
+
+    def __init__(
+        self,
+        source: ProductRepository,
+        cache: RedisJsonCache,
+        metrics: CacheMetrics,
+    ):
+        self._source = source
+        self._cache = cache
+        self._metrics = metrics
+
+    def _deserialize(self, raw: dict) -> Product:
+        return Product(**raw)
+
+    def find_all(self) -> List[Product]:
+        cache_key = "products:all"
+        cached_value = self._cache.get(cache_key)
+        if cached_value is not None:
+            self._metrics.record_hit("products")
+            print(f"[CACHE HIT] products catalog ({len(cached_value)} items)", flush=True)
+            return [self._deserialize(p) for p in cached_value]
+
+        self._metrics.record_miss("products")
+        print("[CACHE MISS] products catalog -> DynamoDB", flush=True)
+        products = self._source.find_all()
+        self._cache.set(cache_key, [asdict(p) for p in products])
+        return products
+
+    def find_by_category(self, categoria: str) -> List[Product]:
+        cache_key = f"products:category:{categoria}"
+        cached_value = self._cache.get(cache_key)
+        if cached_value is not None:
+            self._metrics.record_hit("products_cat")
+            return [self._deserialize(p) for p in cached_value]
+
+        self._metrics.record_miss("products_cat")
+        products = self._source.find_by_category(categoria)
+        self._cache.set(cache_key, [asdict(p) for p in products])
+        return products
+
+    def find_by_id(self, product_id: str) -> Optional[Product]:
+        cache_key = f"products:id:{product_id}"
+        cached_value = self._cache.get(cache_key)
+        if cached_value is not None:
+            self._metrics.record_hit("product_detail")
+            return self._deserialize(cached_value)
+
+        self._metrics.record_miss("product_detail")
+        product = self._source.find_by_id(product_id)
+        if product is not None:
+            self._cache.set(cache_key, asdict(product))
+        return product
+
+    def find_on_sale(self) -> List[Product]:
+        cache_key = "products:on_sale"
+        cached_value = self._cache.get(cache_key)
+        if cached_value is not None:
+            self._metrics.record_hit("products_sale")
+            return [self._deserialize(p) for p in cached_value]
+
+        self._metrics.record_miss("products_sale")
+        products = self._source.find_on_sale()
+        self._cache.set(cache_key, [asdict(p) for p in products])
+        return products
+
+    def search_by_name(self, query: str) -> List[Product]:
+        # Normalizamos la query para usarla como clave de caché.
+        cache_key = f"products:search:{query.strip().lower()}"
+        cached_value = self._cache.get(cache_key)
+        if cached_value is not None:
+            self._metrics.record_hit("products_search")
+            return [self._deserialize(p) for p in cached_value]
+
+        self._metrics.record_miss("products_search")
+        products = self._source.search_by_name(query)
+        self._cache.set(cache_key, [asdict(p) for p in products])
+        return products

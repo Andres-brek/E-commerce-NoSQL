@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Nav from '../components/Nav';
-
-const API = 'http://localhost:8050';
+import API from '../config';
 
 function OrdersPage({ user, onLogout }) {
   const [orders, setOrders] = useState([]);
@@ -28,7 +27,7 @@ function OrdersPage({ user, onLogout }) {
 
   function handleLogout() {
     onLogout();
-    navigate('/login');
+    // Nav ya redirige a /login internamente
   }
 
   function statusBadge(status) {
@@ -65,11 +64,24 @@ function OrdersPage({ user, onLogout }) {
     });
   }
 
+  function formatDeliveryDate(iso) {
+    if (!iso) return '—';
+    // El backend devuelve "YYYY-MM-DD" para fecha de entrega.
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('es-ES', {
+      year: 'numeric', month: 'short', day: 'numeric',
+    });
+  }
+
+  function formatCOP(price) {
+    return '$ ' + Number(price).toLocaleString('es-CO') + ' COP';
+  }
+
   const initial = user.Nombre ? user.Nombre.charAt(0).toUpperCase() : '?';
 
   return (
     <>
-      <Nav onLogout={handleLogout} />
+      <Nav user={user} onLogout={handleLogout} cartCount={0} />
 
       <div className="panel">
         <div className="panel-header">
@@ -109,6 +121,7 @@ function OrdersPage({ user, onLogout }) {
                   <tr>
                     <th>Estado</th>
                     <th>Fecha Creación</th>
+                    <th>Entrega Estimada</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -122,6 +135,7 @@ function OrdersPage({ user, onLogout }) {
                       >
                         <td>{statusBadge(order.Estado)}</td>
                         <td>{formatDate(order.Fecha_creacion)}</td>
+                        <td>{formatDeliveryDate(order.Fecha_entrega)}</td>
                       </tr>
                     );
                   })}
@@ -143,11 +157,17 @@ function OrdersPage({ user, onLogout }) {
                   <div className="order-info-grid">
                     <div>
                       <p className="order-info-label">ORD#{selectedOrderId}</p>
-                      <p className="order-info-value">Total: ${orderDetail.header?.Total}</p>
+                      <p className="order-info-value">Total: {formatCOP(orderDetail.header?.Total)}</p>
                     </div>
                     <div>
-                      <p className="order-info-label">Fecha</p>
-                      <p className="order-info-value">{orderDetail.header?.Fecha}</p>
+                      <p className="order-info-label">Fecha de compra</p>
+                      <p className="order-info-value">{formatDate(orderDetail.header?.Fecha)}</p>
+                    </div>
+                    <div>
+                      <p className="order-info-label">Entrega estimada</p>
+                      <p className="order-info-value">
+                        🚚 {formatDeliveryDate(orderDetail.header?.Fecha_entrega)}
+                      </p>
                     </div>
                     <div>
                       <p className="order-info-label">Dirección de envío</p>
@@ -155,7 +175,7 @@ function OrdersPage({ user, onLogout }) {
                     </div>
                     <div>
                       <p className="order-info-label">Total</p>
-                      <p className="order-info-value order-total">${orderDetail.header?.Total}</p>
+                      <p className="order-info-value order-total">{formatCOP(orderDetail.header?.Total)}</p>
                     </div>
                   </div>
                 </div>
@@ -178,8 +198,8 @@ function OrdersPage({ user, onLogout }) {
                         <td className="product-icon-cell">{productIcon(item.Producto)}</td>
                         <td>{item.Producto}</td>
                         <td>{item.Cantidad}</td>
-                        <td>${item.Precio_unitario}</td>
-                        <td>${item.Precio_unitario * item.Cantidad}</td>
+                        <td>{formatCOP(item.Precio_unitario)}</td>
+                        <td>{formatCOP(item.Precio_unitario * item.Cantidad)}</td>
                       </tr>
                     ))}
                   </tbody>

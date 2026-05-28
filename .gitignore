@@ -1,6 +1,66 @@
+# ── Python ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Dependencias pip instaladas dentro de Backend/ para el bundle de Lambda
+# (se reinstalan en cada deploy con `pip install --target`).
+Backend/redis/
+Backend/redis-*.dist-info/
+Backend/async_timeout/
+Backend/async_timeout-*.dist-info/
+Backend/bin/
+
+# ── Node / Frontend ────────────────────────────────────
+node_modules/
+**/node_modules/
+build/
+dist/
+.npm
+.yarn/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── AWS CDK ────────────────────────────────────────────
 Infra/cdk-local/node_modules/
 Infra/cdk-local/cdk.out/
 Infra/cdk-local/.venv/
-Infra/cdk-local/stacks
+Infra/cdk-local/cdk.context.json
+
+# ── Secretos y configuración local ─────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ── IDE / Editores ─────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 .claude
 
+# ── Sistema operativo ──────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs y temporales ──────────────────────────────────
+*.log
+logs/
+tmp/
+.cache/

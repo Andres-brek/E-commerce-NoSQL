@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const API = 'http://localhost:8050';
+import API from '../config';
 
 function LoginPage({ onLogin }) {
   const [correo, setCorreo] = useState('');

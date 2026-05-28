@@ -29,6 +29,108 @@ def create_table():
     table.wait_until_exists()
     return table
 
+def seed_products():
+    table = dynamodb.Table('EcommerceTable')
+    products = [
+        # Electrónica
+        {
+            "PK": "PRODUCT#P001", "SK": "INFO",
+            "Nombre": "Teléfono Inteligente X100",
+            "Precio": 850000, "Stock": 15,
+            "Categoria": "Electronica",
+            "Descripcion": "Smartphone de última generación con cámara de 108MP y batería de 5000mAh.",
+            "Imagen_url": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&q=80",
+            "Descuento": 15,
+        },
+        {
+            "PK": "PRODUCT#P002", "SK": "INFO",
+            "Nombre": "Portátil WorkPro 15",
+            "Precio": 2200000, "Stock": 8,
+            "Categoria": "Electronica",
+            "Descripcion": "Laptop profesional con procesador Intel i7, 16GB RAM y SSD 512GB.",
+            "Imagen_url": "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&q=80",
+            "Descuento": 0,
+        },
+        {
+            "PK": "PRODUCT#P003", "SK": "INFO",
+            "Nombre": "Auriculares Bluetooth Z5",
+            "Precio": 120000, "Stock": 25,
+            "Categoria": "Electronica",
+            "Descripcion": "Auriculares inalámbricos con cancelación de ruido y 30 horas de batería.",
+            "Imagen_url": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80",
+            "Descuento": 25,
+        },
+        {
+            "PK": "PRODUCT#P004", "SK": "INFO",
+            "Nombre": "Reloj Inteligente FitTrack",
+            "Precio": 350000, "Stock": 3,
+            "Categoria": "Electronica",
+            "Descripcion": "Smartwatch con monitor cardíaco, GPS y resistencia al agua.",
+            "Imagen_url": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80",
+            "Descuento": 0,
+        },
+        # Ropa
+        {
+            "PK": "PRODUCT#P005", "SK": "INFO",
+            "Nombre": "Camiseta Algodón Hombre",
+            "Precio": 45000, "Stock": 100,
+            "Categoria": "Ropa",
+            "Descripcion": "Camiseta 100% algodón peinado, corte slim fit.",
+            "Imagen_url": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&q=80",
+            "Descuento": 30,
+        },
+        {
+            "PK": "PRODUCT#P006", "SK": "INFO",
+            "Nombre": "Jeans Clásico Azul",
+            "Precio": 95000, "Stock": 40,
+            "Categoria": "Ropa",
+            "Descripcion": "Jean clásico de corte recto, tela denim premium.",
+            "Imagen_url": "https://images.unsplash.com/photo-1542272604-787c3835535d?w=400&q=80",
+            "Descuento": 0,
+        },
+        # Hogar
+        {
+            "PK": "PRODUCT#P007", "SK": "INFO",
+            "Nombre": "Mochila de Viaje",
+            "Precio": 90000, "Stock": 50,
+            "Categoria": "Hogar",
+            "Descripcion": "Mochila resistente al agua, 35L de capacidad, múltiples compartimentos.",
+            "Imagen_url": "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&q=80",
+            "Descuento": 20,
+        },
+        {
+            "PK": "PRODUCT#P008", "SK": "INFO",
+            "Nombre": "Lámpara LED Escritorio",
+            "Precio": 75000, "Stock": 30,
+            "Categoria": "Hogar",
+            "Descripcion": "Lámpara LED de escritorio con intensidad regulable y puerto USB.",
+            "Imagen_url": "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&q=80",
+            "Descuento": 0,
+        },
+        # Deportes
+        {
+            "PK": "PRODUCT#P009", "SK": "INFO",
+            "Nombre": "Balón Fútbol Pro",
+            "Precio": 60000, "Stock": 20,
+            "Categoria": "Deportes",
+            "Descripcion": "Balón de fútbol profesional talla 5, cuero sintético de alta durabilidad.",
+            "Imagen_url": "https://images.unsplash.com/photo-1553778263-73a83bab9b0c?w=400&q=80",
+            "Descuento": 10,
+        },
+        {
+            "PK": "PRODUCT#P010", "SK": "INFO",
+            "Nombre": "Tenis Running Air",
+            "Precio": 280000, "Stock": 18,
+            "Categoria": "Deportes",
+            "Descripcion": "Zapatillas de running con amortiguación máxima y suela de goma.",
+            "Imagen_url": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80",
+            "Descuento": 40,
+        },
+    ]
+    for item in products:
+        table.put_item(Item=item)
+
+
 def seed_data():
     table = dynamodb.Table('EcommerceTable')
     items = [
@@ -95,10 +197,11 @@ def seed_data():
         table.put_item(Item=item)
 
 if __name__ == "__main__":
-    try:
-        create_table()
-        print("Tabla creada.")
-    except dynamodb.meta.client.exceptions.ResourceInUseException:
-        print("Tabla ya existe.")
+    # La tabla la crea CDK (PersistenceStack), no este script.
+    # Esperar hasta que la tabla exista antes de cargar datos.
+    table = dynamodb.Table('EcommerceTable')
+    print("Esperando a que la tabla EcommerceTable esté lista...")
+    table.wait_until_exists()
     seed_data()
+    seed_products()
     print("Datos cargados.")

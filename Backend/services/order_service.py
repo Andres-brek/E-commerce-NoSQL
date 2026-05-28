@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from domain.order import OrderSummary, OrderDetail
+from domain.order import CheckoutItem, CheckoutResult, OrderSummary, OrderDetail
 from ports.repositories import OrderRepository
 
 
@@ -16,3 +16,11 @@ class OrderService:
 
     def get_order_detail(self, order_id: str) -> Optional[OrderDetail]:
         return self._repo.find_order_detail(order_id)
+
+    def checkout(
+        self,
+        user_id: str,
+        items: List[CheckoutItem],
+        direccion_envio: str,
+    ) -> CheckoutResult:
+        return self._repo.create_order(user_id, items, direccion_envio)
